@@ -1,0 +1,30 @@
+ROUTINE %ZSTART
+%ZSTART ; mlb - Start Up routine for HealthShare
+	Quit
+SYSTEM	;
+	If ##class(%File).DirectoryExists("/rdwCode") {
+		// create cache.dat in dirctory.
+		Set db=##Class(SYS.Database).%New(),db.Directory="/cachedb/rdw",Status=db.%Save()
+		// add database to server.
+		Set rdw=##Class(Config.Databases).%New(),rdw.Name="rdw",rdw.Directory="/cachedb/rdw/" Do rdw.%Save()
+		// add namespace to server to access new database
+		Set ns=##class(Config.Namespaces).%New(),ns.Name="rdw",ns.Globals="rdw",ns.Routines="rdw" Do ns.%Save()
+		ZN "RDW"
+		Do $system.OBJ.Load("/rdwCode/RDW/Installer.cls","ck")
+		Job ##class(RDW.Installer).Initialize()
+		ZN "%SYS"
+	}
+	If ##class(%File).DirectoryExists("/rdwClient") {
+		// add ecp server to client.
+		Set ecp=##Class(Config.ECPServers).%New(),ecp.Name="rdw",ecp.Address="rdw",ecp.Port=1972 Do ecp.%Save()
+		// Connect to remote server
+		Do ##class(SYS.ECP).ServerAction("rdw",3)
+		// add remote database to client.
+		Set rdw=##Class(Config.Databases).%New(),rdw.Name="rdw",rdw.Server="rdw",rdw.Directory="/cachedb/rdw/" Do rdw.%Save()
+		// add namespace to client to access remote database.
+		Set ns=##class(Config.Namespaces).%New(),ns.Name="rdw",ns.Globals="rdw",ns.Routines="rdw" Do ns.%Save()
+		ZN "RDW"
+		Do ##class(RDW.Installer).SetupClient()
+		ZN "%SYS"
+	}
+	Quit
