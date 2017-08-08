@@ -3,28 +3,23 @@ ROUTINE %ZSTART
 	Quit
 SYSTEM	;
 	If ##class(%File).DirectoryExists("/rdwCode") {
-		// create cache.dat in dirctory.
-		Set db=##Class(SYS.Database).%New(),db.Directory="/cachedb/rdw",Status=db.%Save()
-		// add database to server.
-		Set rdw=##Class(Config.Databases).%New(),rdw.Name="rdw",rdw.Directory="/cachedb/rdw/" Do rdw.%Save()
-		// add namespace to server to access new database
-		Set ns=##class(Config.Namespaces).%New(),ns.Name="rdw",ns.Globals="rdw",ns.Routines="rdw" Do ns.%Save()
-		ZN "RDW"
-		Do $system.OBJ.Load("/rdwCode/RDW/Installer.cls","ck")
-		Job ##class(RDW.Installer).Initialize()
-		ZN "%SYS"
+		//Load Installer and setup environment and classes.
+		Do $system.OBJ.Load("/rdwCode/RDW/RDWInstaller.cls","ck")
+		Do $CLASSMETHOD("RDW.RDWInstaller","setup")
+		Do $CLASSMETHOD("RDW.RDWInstaller","Initialize")
 	}
 	If ##class(%File).DirectoryExists("/rdwClient") {
-		// add ecp server to client.
-		Set ecp=##Class(Config.ECPServers).%New(),ecp.Name="rdw",ecp.Address="rdw",ecp.Port=1972 Do ecp.%Save()
-		// Connect to remote server
-		Do ##class(SYS.ECP).ServerAction("rdw",3)
-		// add remote database to client.
-		Set rdw=##Class(Config.Databases).%New(),rdw.Name="rdw",rdw.Server="rdw",rdw.Directory="/cachedb/rdw/" Do rdw.%Save()
-		// add namespace to client to access remote database.
-		Set ns=##class(Config.Namespaces).%New(),ns.Name="rdw",ns.Globals="rdw",ns.Routines="rdw" Do ns.%Save()
-		ZN "RDW"
-		Do ##class(RDW.Installer).SetupClient()
-		ZN "%SYS"
+		Do RemoteDB
+		Set OldNS=$NAMESPACE
+		ZN "rdwv4"
+		Do $CLASSMETHOD("RDW.V"_$Piece($Piece($SYSTEM,":",1),"v",2)_"Installer","setup")
+		Do $CLASSMETHOD("RDW.Tasks","Initialize")
+		ZN OldNS
 	}
+	Quit
+RemoteDB	; Add Remote Database to Client computers
+	Set ecp=##Class(Config.ECPServers).%New(),ecp.Name="rdw",ecp.Address="rdw",ecp.Port=1972 Do ecp.%Save() // add ecp server to client.
+	Do ##class(SYS.ECP).ServerAction("rdw",3) // Set connection status to Connected.
+	Set rdw=##Class(Config.Databases).%New(),rdw.Name="rdwv4",rdw.Server="rdw",rdw.Directory="/cachedb/rdw/rdwv4" Do rdw.%Save() // add remote database to client.
+	Set ns=##class(Config.Namespaces).%New(),ns.Name="rdwv4",ns.Globals="rdwv4",ns.Routines="rdwv4" Do ns.%Save() // add namespace to client to access remote database.
 	Quit
